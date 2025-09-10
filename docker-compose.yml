@@ -1,0 +1,64 @@
+version: '3.8'
+
+networks:
+  mongo-replica-net:
+    driver: bridge
+
+services:
+  mongo-7-replica:
+    image: mongo:7.0
+    container_name: mongo-7-replica
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongodb-keyfile"]
+    ports:
+      - "27018:27017"
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-root}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-root}
+    volumes:
+      - ./data:/data/db
+      - ./init-scripts:/docker-entrypoint-initdb.d
+      - ./mongodb-keyfile:/etc/mongodb-keyfile:ro
+    networks:
+      - mongo-replica-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    hostname: mongo-7-replica
+
+  mongo-init:
+    image: mongo:7.0
+    container_name: mongo-init
+    depends_on:
+      mongo-7-replica:
+        condition: service_healthy
+    environment:
+      - MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-root}
+      - MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-root}
+    command: >
+      mongosh --host mongo-7-replica:27017
+      --username ${MONGO_ROOT_USERNAME:-root}
+      --password ${MONGO_ROOT_PASSWORD:-root}
+      --authenticationDatabase admin
+      --eval "
+        try {
+          rs.status();
+          print('Replica set already initialized');
+        } catch (e) {
+          print('Initializing replica set...');
+          rs.initiate({
+            _id: 'rs0',
+            members: [
+              { _id: 0, host: 'mongo-7-replica:27018' }
+            ]
+          });
+          print('Replica set initialized successfully!');
+        }
+      "
+    networks:
+      - mongo-replica-net
+    restart: "no"
