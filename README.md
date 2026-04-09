@@ -53,17 +53,17 @@ MONGO_ROOT_PASSWORD=your_secure_password
 
 1. **Start the MongoDB replica set:**
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 2. **Check the status:**
    ```bash
-   docker-compose ps
+   docker compose ps
    ```
 
 3. **View logs:**
    ```bash
-   docker-compose logs -f mongo-7-replica
+   docker compose logs -f mongo-7-replica
    ```
 
 4. **Connect to MongoDB:**
